@@ -769,7 +769,49 @@ package body CLIC.Subcommand.Instance is
       when Error_No_Command =>
          Put_Error ("Unrecognized command: " & Global_Arguments.First_Element);
          Put_Line ("");
-         Display_Usage (Displayed_Error => True);
+
+         declare
+            Least_Distance : Natural := Natural'Last;
+            Closest_Command : Command_Access;
+            Distance : Natural := Natural'Last;
+
+            ----------------------------
+            --  Levenshtein_Distance  --
+            ----------------------------
+            -- It's expected that CLIC does not have too many commands
+            -- Therefore only a simple naive implementation is used
+            function Levenshtein_Distance (User_Input : String; Possible_Command : Identifier) return Natural is
+            begin
+               if User_Input (0) = Possible_Command (0) then
+                  return Levenshtein_Distance (
+                    User_Input (1 .. User_Input'Length),
+                    Possible_Command (1 .. Possible_Command'Length));
+               else
+                  return 0;
+                  --  TODO:
+                  --  implement using recusion (simple but _slow_)   OR
+                  --  use Distance crate       (adds new dependency) OR
+                  --  implment Matrix table... (hard and MANY LOC)
+                  --  Use Wagner-Fischer or Hirschberg?
+               end if;
+            end Levenshtein_Distance;
+
+         begin
+            for Commands in Registered_Commands loop
+                Distance := Levenshtein_Distance (Global_Arguments.First_Element, Command.Name);
+                if Distance < Least_Distance then
+                   Least_Distance := Distance;
+                   Closest_Command := Command;
+                end if;
+            end loop;
+
+            if Least_Distance < 3 then
+
+               Put_Line ("Most similar command is " & Closest_Command.Name);
+            else
+               Display_Usage (Displayed_Error => True);
+            end if;
+         end;
          Error_Exit (1);
    end Execute;
 
