@@ -770,48 +770,11 @@ package body CLIC.Subcommand.Instance is
          Put_Error ("Unrecognized command: " & Global_Arguments.First_Element);
          Put_Line ("");
 
-         declare
-            Least_Distance : Natural := Natural'Last;
-            Closest_Command : Command_Access;
-            Distance : Natural := Natural'Last;
-
-            ----------------------------
-            --  Levenshtein_Distance  --
-            ----------------------------
-            -- It's expected that CLIC does not have too many commands
-            -- Therefore only a simple naive implementation is used
-            function Levenshtein_Distance (User_Input : String; Possible_Command : Identifier) return Natural is
-            begin
-               if User_Input (0) = Possible_Command (0) then
-                  return Levenshtein_Distance (
-                    User_Input (1 .. User_Input'Length),
-                    Possible_Command (1 .. Possible_Command'Length));
-               else
-                  return 0;
-                  --  TODO:
-                  --  implement using recusion (simple but _slow_)   OR
-                  --  use Distance crate       (adds new dependency) OR
-                  --  implment Matrix table... (hard and MANY LOC)
-                  --  Use Wagner-Fischer or Hirschberg?
-               end if;
-            end Levenshtein_Distance;
-
-         begin
-            for Commands in Registered_Commands loop
-                Distance := Levenshtein_Distance (Global_Arguments.First_Element, Command.Name);
-                if Distance < Least_Distance then
-                   Least_Distance := Distance;
-                   Closest_Command := Command;
-                end if;
-            end loop;
-
-            if Least_Distance < 3 then
-
-               Put_Line ("Most similar command is " & Closest_Command.Name);
-            else
-               Display_Usage (Displayed_Error => True);
-            end if;
-         end;
+         if Misstyping_Correction_Distance /= 0 then
+            Closest_Command (Global_Arguments.First_Element);
+         else
+            Display_Usage (Displayed_Error => True);
+         end if;
          Error_Exit (1);
    end Execute;
 
@@ -1082,5 +1045,53 @@ package body CLIC.Subcommand.Instance is
       GNAT.OS_Lib.Free (Command_Line);
       return Result;
    end Is_Global_Switch;
+
+   procedure Closest_Command (User_Input : String) is
+      Least_Distance : Natural := Natural'Last;
+      Closest_Command : Command_Access;
+      Distance : Natural := Natural'Last;
+
+      ----------------------------
+      --  Levenshtein_Distance  --
+      ----------------------------
+      -- It's expected that CLIC does not have too many commands
+      -- Therefore only naive recursive implementation is used
+      function Levenshtein_Distance (User_Input : String; Possible_Command : Identifier) return Natural is
+      begin
+         if User_Input'Length = 0 or Possible_Command'Length = 0 then
+            return 0;
+         elsif User_Input'First = Possible_Command'First then
+            return Levenshtein_Distance (
+              User_Input (User_Input'First + 1 .. User_Input'Length),
+              Possible_Command (Possible_Command'First + 1 .. Possible_Command'Length));
+         else
+            return 1 + Natural'Min (Natural'Min (
+              Levenshtein_Distance (
+                User_Input (User_Input'First + 1 .. User_Input'Length),
+                Possible_Command),
+              Levenshtein_Distance (
+                User_Input,
+                Possible_Command (Possible_Command'First + 1 .. Possible_Command'Length))),
+                   Levenshtein_Distance (
+                     User_Input (User_Input'First + 1 .. User_Input'Length),
+                     Possible_Command (Possible_Command'First + 1 .. Possible_Command'Length)));
+         end if;
+      end Levenshtein_Distance;
+
+   begin
+      for Commands of Registered_Commands loop
+          Distance := Levenshtein_Distance (Global_Arguments.First_Element, Commands.Name);
+          if Distance < Least_Distance then
+             Least_Distance := Distance;
+             Closest_Command := Commands;
+          end if;
+      end loop;
+
+      if Least_Distance < Misstyping_Correction_Distance then
+         Put_Line ("Most similar command is " & Closest_Command.Name);
+      else
+         Display_Usage (Displayed_Error => True);
+      end if;
+   end Closest_Command;
 
 end CLIC.Subcommand.Instance;
