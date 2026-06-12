@@ -1047,44 +1047,53 @@ package body CLIC.Subcommand.Instance is
    end Is_Global_Switch;
 
    procedure Closest_Command (User_Input : String) is
-      Least_Distance : Natural := Natural'Last;
+      Least_Distance : Natural := 999;
       Closest_Command : Command_Access;
-      Distance : Natural := Natural'Last;
+      Distance : Natural := 999;
 
-      ----------------------------
-      --  Levenshtein_Distance  --
-      ----------------------------
-      -- It's expected that CLIC does not have too many commands
-      -- Therefore only naive recursive implementation is used
-      function Levenshtein_Distance (User_Input : String; Possible_Command : Identifier) return Natural is
+      -------------------------------
+      -- Levenshtein_Edit_Distance --
+      -------------------------------
+
+      function Levenshtein_Edit_Distance (S, T : String) return Natural is
+         D : array (S'First - 1 .. S'Last, T'First - 1 .. T'Last) of Natural;
       begin
-         if User_Input'Length = 0 or Possible_Command'Length = 0 then
-            return 0;
-         elsif User_Input'First = Possible_Command'First then
-            return Levenshtein_Distance (
-              User_Input (User_Input'First + 1 .. User_Input'Length),
-              Possible_Command (Possible_Command'First + 1 .. Possible_Command'Length));
-         else
-            return 1 + Natural'Min (Natural'Min (
-              Levenshtein_Distance (
-                User_Input (User_Input'First + 1 .. User_Input'Length),
-                Possible_Command),
-              Levenshtein_Distance (
-                User_Input,
-                Possible_Command (Possible_Command'First + 1 .. Possible_Command'Length))),
-                   Levenshtein_Distance (
-                     User_Input (User_Input'First + 1 .. User_Input'Length),
-                     Possible_Command (Possible_Command'First + 1 .. Possible_Command'Length)));
-         end if;
-      end Levenshtein_Distance;
+         for I in D'Range (1) loop
+            D (I, T'First - 1) := I;
+         end loop;
+
+         for J in D'Range (2) loop
+            D (S'First - 1, J) := J;
+         end loop;
+
+         for I in S'Range loop
+            for J in T'Range loop
+               declare
+                  Cost : constant Natural :=
+                    (if S (I) = T (J)
+                     then 0
+                     else 1);
+
+                  A : constant Natural := D (I - 1, J) + 1;
+                  B : constant Natural := D (I, J - 1) + 1;
+                  C : constant Natural := D (I - 1, J - 1) + Cost;
+               begin
+
+                  D (I, J) := Natural'Min (Natural'Min (A, B), C);
+               end;
+            end loop;
+         end loop;
+
+         return D (D'Last (1), D'Last (2));
+      end Levenshtein_Edit_Distance;
 
    begin
-      for Commands of Registered_Commands loop
-          Distance := Levenshtein_Distance (Global_Arguments.First_Element, Commands.Name);
-          if Distance < Least_Distance then
-             Least_Distance := Distance;
-             Closest_Command := Commands;
-          end if;
+      for Cmd of Registered_Commands loop
+         Distance := Levenshtein_Edit_Distance (User_Input, Cmd.Name);
+         if Distance < Least_Distance then
+            Least_Distance := Distance;
+            Closest_Command := Cmd;
+         end if;
       end loop;
 
       if Least_Distance < Misstyping_Correction_Distance then
