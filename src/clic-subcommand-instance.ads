@@ -33,9 +33,10 @@ generic
    --  options (that apply to all subcommands).
 
    Misstyping_Correction_Distance : Natural := 0;
-   --  Suggest the closesed command when user missclicks. Takes the Levenshtein
-   --  distance as a parameter.
-   --  Is Disabled when 0 and always enabled when Natrual'Least
+   --  Suggest the closesed command when user misstypes. Takes the Levenshtein
+   --  edit distance as a parameter.
+   --  Is Disabled when 0 and always enabled when Natrual'Least.
+   --  Has to be applied to subcommands as well.
 
 package CLIC.Subcommand.Instance is
 

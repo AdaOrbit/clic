@@ -12,6 +12,7 @@ with AAA.Text_IO;
 
 with CLIC.Config.Info;
 with CLIC.Command_Line; use CLIC.Command_Line;
+with CLIC.Utils;
 
 package body CLIC.Subcommand.Instance is
 
@@ -771,7 +772,6 @@ package body CLIC.Subcommand.Instance is
          Put_Line ("");
 
          if Misstyping_Correction_Distance /= 0 then
-            --  Don't even check if distance is 0
             Closest_Command (Global_Arguments.First_Element);
          else
             Display_Usage (Displayed_Error => True);
@@ -1047,50 +1047,17 @@ package body CLIC.Subcommand.Instance is
       return Result;
    end Is_Global_Switch;
 
+   -----------------------
+   --  Closest_Command  --
+   -----------------------
+
    procedure Closest_Command (User_Input : String) is
-      Least_Distance : Natural := 999;
+      Least_Distance : Natural := Natural'Last;
       Closest_Command : Command_Access;
-      Distance : Natural := 999;
-
-      -------------------------------
-      -- Levenshtein_Edit_Distance --
-      -------------------------------
-
-      function Levenshtein_Edit_Distance (S, T : String) return Natural is
-         D : array (S'First - 1 .. S'Last, T'First - 1 .. T'Last) of Natural;
-      begin
-         for I in D'Range (1) loop
-            D (I, T'First - 1) := I;
-         end loop;
-
-         for J in D'Range (2) loop
-            D (S'First - 1, J) := J;
-         end loop;
-
-         for I in S'Range loop
-            for J in T'Range loop
-               declare
-                  Cost : constant Natural :=
-                    (if S (I) = T (J)
-                     then 0
-                     else 1);
-
-                  A : constant Natural := D (I - 1, J) + 1;
-                  B : constant Natural := D (I, J - 1) + 1;
-                  C : constant Natural := D (I - 1, J - 1) + Cost;
-               begin
-
-                  D (I, J) := Natural'Min (Natural'Min (A, B), C);
-               end;
-            end loop;
-         end loop;
-
-         return D (D'Last (1), D'Last (2));
-      end Levenshtein_Edit_Distance;
-
+      Distance : Natural := Natural'Last;
    begin
       for Cmd of Registered_Commands loop
-         Distance := Levenshtein_Edit_Distance (User_Input, Cmd.Name);
+         Distance := CLIC.Utils.Levenshtein_Edit_Distance (User_Input, Cmd.Name);
          if Distance < Least_Distance then
             Least_Distance := Distance;
             Closest_Command := Cmd;
