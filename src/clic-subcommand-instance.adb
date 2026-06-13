@@ -771,6 +771,7 @@ package body CLIC.Subcommand.Instance is
          Put_Line ("");
 
          if Misstyping_Correction_Distance /= 0 then
+            --  Don't even check if distance is 0
             Closest_Command (Global_Arguments.First_Element);
          else
             Display_Usage (Displayed_Error => True);
